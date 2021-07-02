@@ -1,0 +1,135 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>UV Robot Controller</title>
+        <meta charset="utf-8">
+        <meta name="description" content="Web ini digunakan untuk mengendalikan robot UV">
+        <meta name="author" content="Naufan Rikza Ahmada">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel ="stylesheet" type="text/css" href="style.css">
+        <script src="joy.js"></script>
+
+    </head>
+    <body>
+        <h1>UV Robot Joystick</h1>
+            <div class="columnLateral">
+                <div>
+                    <button onclick="connectButtonFunc()" id = "connectButton">Connect</button>
+                    <button onclick="relayButtonFunc()" id = "relayButton" disabled="true">Turn On Lamp</button>
+                </div>
+                    <!-- <figure style="height:296px; width: 400px;"> -->
+                <div id="stream-container" class="image-container" style="margin:2px;"> <img id="stream" src=""> </div>
+                    <!-- </figure> -->
+                <center>
+                    <div id="joyDiv"></div>
+                </center>
+
+                <div class="slidecontainer">
+                    <input type="range" min="1" max="100" value="50" class="slider" id="speedSlider">
+                </div>
+
+                <div>
+                    <p>Speed : <span id="speedValue"></span></p>
+                </div>
+
+                <div>
+                    <audio control id="audio">
+                        <source src="ting.mp3" type="audio/mpeg">
+                      Your browser does not support the audio element.
+                      </audio>
+                </div>
+                
+            </div>
+        <script type="text/javascript">
+            var ws = null;
+            var Joy = new JoyStick('joyDiv');
+
+            var joyPositionX = document.getElementById("joyPositionX");
+            var joyPositionY = document.getElementById("joyPositionY");
+            var view = document.getElementById('stream');
+            var speedSlider = document.getElementById('speedSlider');
+            var speedValue = document.getElementById("speedValue");
+
+            var speed = 50;
+            var beep = document.getElementById("audiosound");
+
+            speedSlider.oninput = function() {
+                speedValue.innerHTML = this.value + "%";
+
+                speed = this.value;
+            }
+            speedValue.innerHTML = speedSlider.value + "%";
+
+            var isConnected = false;
+            var relayOn = 0;
+
+            var url = window.location.host;
+
+            view.src = "http://" + url + "/initialimage";
+            
+            function connectButtonFunc(){
+                if(!isConnected){
+                    document.getElementById("connectButton").innerHTML = "Disconnect";
+                    document.getElementById("relayButton").disabled = false;
+                    isConnected = !isConnected;
+                    OpenWebSocket();
+                }
+                else{
+                    document.getElementById("connectButton").innerHTML = "Connect";
+                    document.getElementById("relayButton").innerHTML = "Turn On Lamp";
+                    document.getElementById("relayButton").disabled = true;
+                    relayOn = 0;
+                    isConnected = !isConnected;
+                    CloseWebSocket();
+                }
+            }
+
+            function relayButtonFunc(){
+                if(relayOn){
+                    relayOn = 0;
+                    document.getElementById("relayButton").innerHTML = "Turn On Lamp";
+                }
+                else{
+                    relayOn = 1;
+                    document.getElementById("relayButton").innerHTML = "Turn Off Lamp";
+                }
+            }
+
+            function OpenWebSocket(){
+                ws = new WebSocket("ws://" + url + ":82");
+
+                ws.onopen = function(){
+                    // document.getElementById("connectButton").disabled = true;
+                    // document.getElementById("disconnectButton").disabled = false;
+                    // document.getElementById(canvas7670).style.visibility = visible;
+                    // document.getElementById(connecting).style.visibility = hidden;
+                    // document.getElementById(constatus).innerText = "Connected to"  + ws.url;
+                };
+
+                ws.onmessage = message => {
+                    if (message.data instanceof Blob) {
+                        var urlObject = URL.createObjectURL(message.data);
+                        view.src = urlObject;
+                        beep.play();
+                    }
+
+                    var posX = Joy.GetX();
+                    var posY = Joy.GetY();
+
+                    var data = posX.toString() + ',' + posY.toString() + ',' + relayOn.toString() + ',' + speed.toString();
+
+                    ws.send(data);
+                };
+
+                ws.onclose = function(){
+                    alert("Connection closed");
+                    view.src = "http://" + url + "/initialimage";
+                };
+            }
+
+            function CloseWebSocket(){
+                ws.close();
+            }
+        </script>
+    </body>
+</html>

@@ -1,0 +1,32 @@
+*
+{
+	box-sizing: border-box;
+}
+body
+{
+	text-align : center;
+	margin: 0px;
+	padding: 0px;
+	font-family: monospace;
+}
+.row
+{
+	display: inline-flex;
+	clear: both;
+}
+.columnLateral
+{
+  width: 100%;
+  min-width: 400px;
+}
+.columnCetral
+{
+  width: 70%; 
+  min-width: 500px;
+}
+#joyDiv
+{
+	width:200px;
+	height:200px;
+	margin:10px
+}
