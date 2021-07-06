@@ -77,9 +77,17 @@ void Robot::Set_sigmoid_Const(float Const)
   {
     SigmoidVal.insert(SigmoidVal.begin(),std::begin(sigmoid_1),std::end(sigmoid_1));
   }
+  else if(Const == 1.25)
+  {
+    SigmoidVal.insert(SigmoidVal.begin(),std::begin(sigmoid_125),std::end(sigmoid_125));
+  }
   else if(Const == 1.5)
   {
     SigmoidVal.insert(SigmoidVal.begin(),std::begin(sigmoid_15),std::end(sigmoid_15));
+  }
+  else if(Const == 1.75)
+  {
+    SigmoidVal.insert(SigmoidVal.begin(),std::begin(sigmoid_175),std::end(sigmoid_175));
   }
   else if(Const == 2)
   {
@@ -111,7 +119,7 @@ void Robot::begin()
   // pinMode(UV_LAMP, OUTPUT);
 
   // Set_Sigmoid_risetime(500);S
-  Set_sigmoid_Const(1);
+  Set_sigmoid_Const(1.25);
 
   PWM_Config.frequency = freq; //frequency,
   PWM_Config.cmpr_a = 0;       //duty cycle of PWMxA = 0
@@ -180,7 +188,6 @@ void Robot::begin()
   WiFi.softAP("TRILILI", "12345678");
   IPAddress myIP = WiFi.softAPIP();
 
-  // Serial.println("IP address: ");
   Serial.println(myIP); // You can get IP address assigned to ESP
 
 }

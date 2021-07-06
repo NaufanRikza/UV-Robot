@@ -7,6 +7,7 @@ WebsocketsServer server;
 AsyncWebServer webserver(80);
 TaskHandle_t MovementControl;
 
+
 void IRAM_ATTR SigmoidWrite()
 {
   portENTER_CRITICAL_ISR(&UVRobot.timerMux);
@@ -92,7 +93,7 @@ void loop2(void * parameter)
 {
   for(;;)
   {
-    // UVRobot.UVLamp(UVRobot.relay);
+    UVRobot.UVLamp(UVRobot.relay);
     // UVRobot.Move(UVRobot.posX, UVRobot.posY);
     // UVRobot.MoveNoRamp(UVRobot.posX, UVRobot.posY);
     UVRobot.MoveLinear(UVRobot.posX, UVRobot.posY);
@@ -140,7 +141,6 @@ void setup() {
  Serial.begin(115200);
  UVRobot.begin();
 
- 
  webserver.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", "text/html");
   });
@@ -153,7 +153,7 @@ void setup() {
  webserver.on("/initialimage", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/initial.jpeg", "image/jpeg");
   });
-
+  
   webserver.begin();
   server.listen(82);
   xTaskCreatePinnedToCore(loop2,"MovementControl",10000,NULL,0,&MovementControl,0);
