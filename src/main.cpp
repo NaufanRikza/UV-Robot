@@ -6,13 +6,14 @@ Robot UVRobot;
 WebsocketsServer server;
 AsyncWebServer webserver(80);
 TaskHandle_t MovementControl;
-
+bool calculate = false;
+bool sigmoid = false;
+volatile uint8_t pinstate = LOW;
 
 void IRAM_ATTR SigmoidWrite()
 {
   portENTER_CRITICAL_ISR(&UVRobot.timerMux);
-  // Serial.println("|");
-  if(sigmoid_index < UVRobot.Maxsigmoidindex)
+  if(sigmoid_index <= UVRobot.Maxsigmoidindex)
   {
     sigmoid_index++;
   }
@@ -25,7 +26,6 @@ void IRAM_ATTR SigmoidWrite()
   {
     case SPEEDUP:
     {
-      // UVRobot.RAMP_SPEED = UVRobot.SigmoidVal[sigmoid_index] * UVRobot.maxVelocity;
       UVRobot.RAMP_SPEED = UVRobot.DrawSigmoidPWM(UVRobot.SigmoidVal[sigmoid_index]);
       if((UVRobot.MOVE_FLAG == FORWARD_RIGHT || UVRobot.MOVE_FLAG == FORWARD_LEFT 
         ||UVRobot.MOVE_FLAG == BACKWARD_RIGHT || UVRobot.MOVE_FLAG == BACKWARD_LEFT) 
@@ -37,8 +37,7 @@ void IRAM_ATTR SigmoidWrite()
 
     case SPEEDDOWN:
     {
-      UVRobot.RAMP_SPEED = UVRobot.SigmoidVal[UVRobot.Maxsigmoidindex - sigmoid_index] * UVRobot.maxVelocity;
-      // UVRobot.RAMP_SPEED= UVRobot.DrawSigmoidPWM(UVRobot.SigmoidVal[UVRobot.Maxsigmoidindex - sigmoid_index]);
+      UVRobot.RAMP_SPEED= UVRobot.DrawSigmoidPWMDown(UVRobot.SigmoidVal[UVRobot.Maxsigmoidindex - sigmoid_index]);
       if((UVRobot.MOVE_FLAG == FORWARD_RIGHT || UVRobot.MOVE_FLAG == FORWARD_LEFT 
         ||UVRobot.MOVE_FLAG == BACKWARD_RIGHT || UVRobot.MOVE_FLAG == BACKWARD_LEFT) 
         && (UVRobot.RAMP_SPEED > UVRobot.minVelocity))
@@ -52,7 +51,6 @@ void IRAM_ATTR SigmoidWrite()
 
 void IRAM_ATTR time()
 {
-  portENTER_CRITICAL_ISR(&UVRobot.timerMux);
   if(elapsedtime < MAX_SAMPLING_TIME)
   {
     elapsedtime++;
@@ -97,6 +95,7 @@ void loop2(void * parameter)
     // UVRobot.Move(UVRobot.posX, UVRobot.posY);
     // UVRobot.MoveNoRamp(UVRobot.posX, UVRobot.posY);
     UVRobot.MoveLinear(UVRobot.posX, UVRobot.posY);
+    // Serial.println(sigmoid_index);
     vTaskDelay(1);
   }
 }
@@ -129,16 +128,19 @@ void handle_message(WebsocketsMessage msg) {
   UVRobot.relay = relay_S.toInt();
   UVRobot.speed = speed_S.toInt();
 
-  UVRobot.maxVelocity = map(UVRobot.speed,1,100,30,100);
-  if((UVRobot.MOVE_FLAG == NEUTRAL) && (UVRobot.maxVelocity != UVRobot.maxVelocityBefore))
+  UVRobot.maxVelocity =  map(UVRobot.speed,1,100,30,100);
+  if((UVRobot.maxVelocity != UVRobot.maxVelocityBefore))
   {
     PWMsigmoidconst = UVRobot.CalculatePWMSigmoidConst(UVRobot.maxVelocity);
+    UVRobot.maxVelocitysigmoid = UVRobot.DrawSigmoidPWM(UVRobot.SigmoidVal[UVRobot.Maxsigmoidindex]);
+    UVRobot.minvelocitysigmoid = UVRobot.DrawSigmoidPWM(UVRobot.SigmoidVal[0]);
+    Serial.println(PWMsigmoidconst, 3);
   }
   UVRobot.maxVelocityBefore = UVRobot.maxVelocity;
 }
 
 void setup() {
- Serial.begin(115200);
+//  Serial.begin(115200);
  UVRobot.begin();
 
  webserver.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -163,11 +165,12 @@ void setup() {
 void loop() {
   auto client = server.accept();
   client.onMessage(handle_message);
-  while (client.available()) { 
+  while (client.available()) 
+  { 
     client.poll();
-        UVRobot.fb = esp_camera_fb_get();
-        client.sendBinary((const char *)UVRobot.fb->buf, UVRobot.fb->len);
-        esp_camera_fb_return(UVRobot.fb);
-        UVRobot.fb = NULL;
-        }
+    UVRobot.fb = esp_camera_fb_get();
+    client.sendBinary((const char *)UVRobot.fb->buf, UVRobot.fb->len);
+    esp_camera_fb_return(UVRobot.fb);
+    UVRobot.fb = NULL;
+  }
 }

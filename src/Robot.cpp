@@ -46,25 +46,21 @@ void Robot::Set_Sigmoid_risetime(uint16_t time)
   Maxsigmoidindex = SigmoidVal.size() - 1;
   Serial.print("Index = ");
   Serial.println(Maxsigmoidindex);
+}
 
-  for(int i=0;i<=1;i++)
-  {
-    if(i == 0)
-    {
-      for(int j = 0;j<=Maxsigmoidindex;j++)
-      {
-        Serial.println(SigmoidVal[j],4);
-      }
-    }
-    else if(i == 1)
-    {
-      Serial.println("-------------");
-      for(int j = 0;j<=Maxsigmoidindex;j++)
-      {
-        Serial.println(SigmoidVal[Maxsigmoidindex - j],4);
-      }
-    }
-  }
+double Robot::DrawSigmoidPWM(double sigmoidval)
+{
+  return ((sigmoidval + PWMsigmoidconst)/(1.0 + PWMsigmoidconst)) * maxVelocity;
+}
+
+double Robot::DrawSigmoidPWMDown(double sigmoidval)
+{
+  return sigmoidval*maxVelocity;
+}
+
+float Robot::CalculatePWMSigmoidConst(double maxspeed)
+{
+  return (double)PWM_MIN/(maxspeed - PWM_MIN);
 }
 
 void Robot::Set_sigmoid_Const(float Const)
@@ -72,6 +68,10 @@ void Robot::Set_sigmoid_Const(float Const)
   if(Const == 0.5)
   {
     SigmoidVal.insert(SigmoidVal.begin(),std::begin(sigmoid_05),std::end(sigmoid_05));
+  }
+  else if(Const == 0.75)
+  {
+    SigmoidVal.insert(SigmoidVal.begin(),std::begin(sigmoid_075),std::end(sigmoid_075));
   }
   else if(Const == 1)
   {
@@ -96,16 +96,9 @@ void Robot::Set_sigmoid_Const(float Const)
 
   SigmoidVal.shrink_to_fit();
   Maxsigmoidindex = SigmoidVal.size() - 1;
-}
 
-double Robot::DrawSigmoidPWM(double sigmoidval)
-{
-  return ((sigmoidval + PWMsigmoidconst)/(1.0 + PWMsigmoidconst)) * maxVelocity;
-}
-
-float Robot::CalculatePWMSigmoidConst(double maxspeed)
-{
-  return (double)PWM_MIN/(maxspeed - PWM_MIN);
+  Serial.println(Maxsigmoidindex);
+  Serial.println(minvelocitysigmoid);
 }
 
 void Robot::begin()
@@ -116,10 +109,9 @@ void Robot::begin()
   pinMode(DIR_LEFT_2, OUTPUT);
   pinMode(PWM_RIGHT, OUTPUT);
   pinMode(PWM_LEFT, OUTPUT);
-  // pinMode(UV_LAMP, OUTPUT);
+  pinMode(UV_LAMP, OUTPUT);
 
-  // Set_Sigmoid_risetime(500);S
-  Set_sigmoid_Const(1.25);
+  Set_sigmoid_Const(1.75);
 
   PWM_Config.frequency = freq; //frequency,
   PWM_Config.cmpr_a = 0;       //duty cycle of PWMxA = 0
@@ -185,7 +177,7 @@ void Robot::begin()
   }
 
   WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP("TRILILI", "12345678");
+  WiFi.softAP("UVRobot", "12345678");
   IPAddress myIP = WiFi.softAPIP();
 
   Serial.println(myIP); // You can get IP address assigned to ESP
@@ -1348,13 +1340,12 @@ void Robot::LinearUpAcc(uint8_t moveflag)
   // Serial.println("MASUK");
   if (!timerStarted(timer2) && (RAMP_SPEED == noVelocity))
   {
-    Serial.println("|");
     ramptiming = SPEEDUP;
     timerStart(timer2);
   }
   else
   {
-    if ((RAMP_SPEED >= maxVelocity) && (timerStarted(timer2)))
+    if ((RAMP_SPEED >= maxVelocitysigmoid) && (timerStarted(timer2)))
     {
       RAMP_SPEED = maxVelocity;
       ramptiming = NOT_USED;
@@ -1523,14 +1514,15 @@ void Robot::LinearUpAcc(uint8_t moveflag)
 
 void Robot::LinearDownAcc(uint8_t moveflag)
 {
-  if ((!timerStarted(timer2)) && (RAMP_SPEED == maxVelocity))
+  if ((!timerStarted(timer2)) && (RAMP_SPEED == maxVelocitysigmoid))
   {
     ramptiming = SPEEDDOWN;
+    elapsedtime = 0;
     timerStart(timer2);
   }
   else
   {
-    if ((RAMP_SPEED <= noVelocity) && (timerStarted(timer2)))
+    if ((RAMP_SPEED <= minvelocitysigmoid) && (timerStarted(timer2)))
     {
       RAMP_SPEED = noVelocity;
       ramptiming = NOT_USED;
@@ -1635,7 +1627,7 @@ void Robot::LinearDownAcc(uint8_t moveflag)
     }
     else if (ramptiming == NOT_USED)
     {
-      if (RAMP_SPEED <= noVelocity)
+      if (RAMP_SPEED <= minvelocitysigmoid)
       {
         RAMP_SPEED = noVelocity;
         RotateMotor(RIGHT_MOTOR, noVelocity, NEUTRAL);
@@ -1869,7 +1861,8 @@ void Robot::MoveLinear(int8_t x, int8_t y)
     RotateMotor(LEFT_MOTOR, noVelocity, NEUTRAL);
     elapsedtime = 0;
     sigmoid_index = 0;
-    // timerStop(timer2);
+    RAMP_SPEED = noVelocity;
+    timerStop(timer2);
     timerWrite(timer2, 0);
   }
   // Serial.println(RAMP_SPEED);
